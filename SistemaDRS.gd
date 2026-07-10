@@ -41,6 +41,18 @@ var p_z_inicio: float = 1.0
 var p_z_fin: float = 1.0
 var p_programada_en_horizonte: bool = false
 
+# ==========================================
+# PERTURBACIÓN DE ACCESO A DISCO (stall SSD) — un solo disparo, con rampa
+# ==========================================
+var stall_activo: bool = false
+var stall_temporizador: float = 0.0
+var stall_duracion: float = 0.6      # s (coherente con el orden de magnitud del Escenario B del informe)
+var stall_rampa: float = 0.2         # s de subida y de bajada
+var stall_amplitud_ms: float = 100.0 # ms de retardo artificial en el pico
+
+# Motivo de la perturbación vigente, usado para el log de tiempos de establecimiento
+var ultima_perturbacion: String = "Transitorio de Arranque"
+
 var nodo_ciudad: Node3D
 var piso_plano: MeshInstance3D
 var luz_sol: DirectionalLight3D
@@ -135,6 +147,7 @@ func _process(delta: float):
 		if camara.global_position.z <= p_z_inicio and camara.global_position.z >= p_z_fin:
 			if not p_activa:
 				p_activa = true
+				ultima_perturbacion = "Alta Carga (Zona Densa)"
 				ts_cronometro = 0.0
 				ts_tiempo_en_banda = 0.0
 				ts_calculando = true
@@ -149,6 +162,19 @@ func _process(delta: float):
 		p_activa = false
 
 	if thermal_throttling: OS.delay_msec(4)
+
+	if stall_activo:
+		stall_temporizador += delta
+		var delay_ms = 0.0
+		if stall_temporizador < stall_rampa:
+			delay_ms = stall_amplitud_ms * (stall_temporizador / stall_rampa)
+		elif stall_temporizador > (stall_duracion - stall_rampa):
+			delay_ms = stall_amplitud_ms * max(0.0, (stall_duracion - stall_temporizador) / stall_rampa)
+		else:
+			delay_ms = stall_amplitud_ms
+		OS.delay_msec(int(round(delay_ms)))
+		if stall_temporizador >= stall_duracion:
+			stall_activo = false
 	
 	# ---------------------------------------------------------
 	# LAZO PID MEJORADO CONTRA OSCILACIONES Y WINDUP
@@ -215,8 +241,7 @@ func _process(delta: float):
 				ts_calculando = false
 				ts_registrado = ts_cronometro - 1.5 
 				
-				var motivo = "Transitorio de Arranque" if tiempo_absoluto < 10.0 else "Rechazo de Perturbación Geométrica"
-				if thermal_throttling: motivo = "Perturbación Interna (Throttling)"
+				var motivo = ultima_perturbacion
 				
 				var log_txt = "[%.1f s] Kp:%.3f Ki:%.3f Kd:%.3f | %s -> Estabilizado en: %.2f segundos.\n" % [tiempo_absoluto, Kp, Ki, Kd, motivo, ts_registrado]
 				ts_archivo_historial.store_string(log_txt)
@@ -235,7 +260,12 @@ func _process(delta: float):
 	
 	if label_stats and osc_rect:
 		_actualizar_hmi_texto()
-		osc_rect.actualizar_graficos(SP_ms, ui_frametime_suavizado, pv_frametime_filtrado, ui_error_suavizado, ui_controlador_suavizado, p_valor_actual)
+		var perturbaciones_activas = {
+			"geo": p_activa,
+			"thermal": thermal_throttling,
+			"disco": stall_activo
+		}
+		osc_rect.actualizar_graficos(SP_ms, ui_frametime_suavizado, pv_frametime_filtrado, ui_error_suavizado, ui_controlador_suavizado, perturbaciones_activas)
 		
 	if grabando_csv:
 		timer_muestreo += delta
@@ -252,6 +282,16 @@ func _on_disparar_pulso():
 		p_z_inicio = camara.global_position.z - distancia_horizonte 
 		p_z_fin = p_z_inicio - longitud_zona
 		p_programada_en_horizonte = true
+
+func _on_disparar_stall_disco():
+	if stall_activo:
+		return
+	stall_activo = true
+	stall_temporizador = 0.0
+	ultima_perturbacion = "Acceso a Disco (Stall SSD)"
+	ts_cronometro = 0.0
+	ts_tiempo_en_banda = 0.0
+	ts_calculando = true
 
 func _instanciar_objeto(z_pos: float, es_zona_densa: bool):
 	var instancia = MeshInstance3D.new()
@@ -390,7 +430,7 @@ func _construir_interfaz_dinamica():
 	crear_slider.call("Duración Pert. (s)", 1.0, 15.0, 1.0, p_duracion, func(val): p_duracion = val)
 	
 	var btn_pulso = Button.new()
-	btn_pulso.text = "⚡ DISPARAR PERTURBACIÓN: ZONA DENSA"
+	btn_pulso.text = "⚡ DISPARAR ALTA CARGA (Zona Densa)"
 	btn_pulso.custom_minimum_size = Vector2(0, 45)
 	btn_pulso.pressed.connect(_on_disparar_pulso)
 	vbox.add_child(btn_pulso)
@@ -400,11 +440,19 @@ func _construir_interfaz_dinamica():
 	btn_th.custom_minimum_size = Vector2(0, 45)
 	btn_th.pressed.connect(func(): 
 		thermal_throttling = !thermal_throttling
+		if thermal_throttling:
+			ultima_perturbacion = "Thermal Throttling"
 		ts_cronometro = 0.0
 		ts_tiempo_en_banda = 0.0
 		ts_calculando = true
 	)
 	vbox.add_child(btn_th)
+
+	var btn_stall = Button.new()
+	btn_stall.text = "💾 DISPARAR ACCESO A DISCO"
+	btn_stall.custom_minimum_size = Vector2(0, 45)
+	btn_stall.pressed.connect(_on_disparar_stall_disco)
+	vbox.add_child(btn_stall)
 	
 	btn_low_graphics = Button.new()
 	btn_low_graphics.text = "🐌 MODO LOW-GRAPHICS"
@@ -433,6 +481,7 @@ func _actualizar_hmi_texto():
 	
 	txt += "Zona de Perturbación: %s\n" % ("[color=yellow]ATRAVESANDO[/color]" if p_activa else "Despejado")
 	txt += "Thermal Throttling: %s\n" % ("[color=red]ACTIVO[/color]" if thermal_throttling else "Inactivo")
+	txt += "Acceso a Disco: %s\n" % ("[color=#bf5fff]ACTIVO[/color]" if stall_activo else "Inactivo")
 	txt += "Modo Low-Graphics: %s\n" % ("[color=cyan]ACTIVO[/color]" if modo_low_graphics else "Inactivo")
 	
 	if grabando_csv:
