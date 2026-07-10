@@ -16,9 +16,8 @@ var prev_error: float = 0.0
 var cant_obj_cada_instancia: int = 4 # Densidad nominal de objetos instanciados
 
 # ==========================================
-# MODO LOW-GRAPHICS (para hardware limitado)
+# CONFIGURACIÓN GRÁFICA (fija — hardware de referencia)
 # ==========================================
-var modo_low_graphics: bool = false
 var distancia_horizonte: float = 500.0
 var segmentos_esfera_base: int = 32
 var anillos_esfera_base: int = 16
@@ -82,7 +81,6 @@ var ts_archivo_historial: FileAccess
 # Referencias
 var label_stats: RichTextLabel
 var osc_rect: VBoxContainer
-var btn_low_graphics: Button
 @onready var camara = $Camera3D
 
 func _ready():
@@ -261,7 +259,7 @@ func _process(delta: float):
 	if label_stats and osc_rect:
 		_actualizar_hmi_texto()
 		var perturbaciones_activas = {
-			"geo": p_activa,
+			"geo": p_programada_en_horizonte,
 			"thermal": thermal_throttling,
 			"disco": stall_activo
 		}
@@ -315,39 +313,12 @@ func _instanciar_objeto(z_pos: float, es_zona_densa: bool):
 		instancia.position = Vector3(randf_range(-200, 200), randf_range(90, 120), z_pos)
 		instancia.set_surface_override_material(0, mat_esfera_compartida)
 		
-	instancia.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if modo_low_graphics else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	instancia.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	nodo_ciudad.add_child(instancia)
 
 # ==========================================
-# MODO LOW-GRAPHICS Y UI
+# INTERFAZ
 # ==========================================
-func _aplicar_modo_grafico(activar: bool):
-	modo_low_graphics = activar
-	luz_sol.shadow_enabled = not activar
-	if entorno.environment:
-		entorno.environment.fog_enabled = not activar
-	
-	get_viewport().msaa_3d = Viewport.MSAA_DISABLED if activar else Viewport.MSAA_2X
-	distancia_horizonte = 220.0 if activar else 500.0
-	
-	if activar:
-		segmentos_esfera_base = 10
-		anillos_esfera_base = 5
-		segmentos_esfera_densa = 24
-		anillos_esfera_densa = 12
-	else:
-		segmentos_esfera_base = 32
-		anillos_esfera_base = 16
-		segmentos_esfera_densa = 128
-		anillos_esfera_densa = 64
-	
-	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED if activar else DisplayServer.VSYNC_ENABLED)
-	
-	if btn_low_graphics:
-		btn_low_graphics.text = "🐌 LOW-GRAPHICS: ACTIVO ✔" if activar else "🐌 MODO LOW-GRAPHICS"
-
-func _on_toggle_low_graphics():
-	_aplicar_modo_grafico(!modo_low_graphics)
 
 func _construir_interfaz_dinamica():
 	var canvas = CanvasLayer.new()
@@ -454,12 +425,6 @@ func _construir_interfaz_dinamica():
 	btn_stall.pressed.connect(_on_disparar_stall_disco)
 	vbox.add_child(btn_stall)
 	
-	btn_low_graphics = Button.new()
-	btn_low_graphics.text = "🐌 MODO LOW-GRAPHICS"
-	btn_low_graphics.custom_minimum_size = Vector2(0, 45)
-	btn_low_graphics.pressed.connect(_on_toggle_low_graphics)
-	vbox.add_child(btn_low_graphics)
-	
 	osc_rect = VBoxContainer.new()
 	osc_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	osc_rect.set_script(load("res://MultiOsciloscopio.gd"))
@@ -482,7 +447,6 @@ func _actualizar_hmi_texto():
 	txt += "Zona de Perturbación: %s\n" % ("[color=yellow]ATRAVESANDO[/color]" if p_activa else "Despejado")
 	txt += "Thermal Throttling: %s\n" % ("[color=red]ACTIVO[/color]" if thermal_throttling else "Inactivo")
 	txt += "Acceso a Disco: %s\n" % ("[color=#bf5fff]ACTIVO[/color]" if stall_activo else "Inactivo")
-	txt += "Modo Low-Graphics: %s\n" % ("[color=cyan]ACTIVO[/color]" if modo_low_graphics else "Inactivo")
 	
 	if grabando_csv:
 		txt += "\n[color=green]► GRABANDO DATOS TELEMÉTRICOS (%.1f s)[/color]" % tiempo_absoluto

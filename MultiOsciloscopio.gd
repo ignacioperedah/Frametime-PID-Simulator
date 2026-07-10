@@ -1,23 +1,17 @@
 extends VBoxContainer
 
 # ==========================================================
-# MULTI-OSCILOSCOPIO — versión con paneles separados
+# MULTI-OSCILOSCOPIO
 # ==========================================================
-# Cambios respecto de la versión anterior:
-#  1) En vez de un único canvas con las 6 variables superpuestas
-#     (compartiendo el mismo lienzo aunque cada una tenga su propia
-#     escala interna), ahora cada grupo de variables tiene su PROPIO
-#     panel/canvas, con su propio eje vertical. Se agrupó FrameTime
-#     (VR/Sal/Med) en un panel porque comparten unidad (ms) y tiene
-#     sentido verlas superpuestas; Error y Actuador quedaron en
-#     paneles propios porque sus escalas no son comparables entre sí
-#     ni con el FrameTime.
-#  2) Se agregó una fila de indicadores tipo LED que se "encienden"
-#     (cambian de color apagado a color vivo) en el instante exacto
-#     en que cada perturbación pasa a estar activa, y el fondo de
-#     los tres paneles se tiñe de un tono cálido mientras cualquier
-#     perturbación esté activa — así la perturbación queda marcada
-#     visualmente en el propio osciloscopio, no solo en el HMI de texto.
+# Tres paneles independientes, cada uno con su propio eje vertical:
+#   - FrameTime (VR/Sal/Med): comparten unidad (ms), se grafican
+#     superpuestos en el mismo panel.
+#   - Error: panel propio, con su propio rango (puede ser negativo).
+#   - Actuador (escala de render s(k)): panel propio, rango [0.4, 1.1] x.
+# Además, una fila de indicadores tipo LED —uno por cada perturbación—
+# se enciende en el instante en que esa perturbación pasa a estar
+# activa, y el fondo de los tres paneles se tiñe de un tono cálido
+# mientras cualquier perturbación esté activa.
 # ==========================================================
 
 var max_puntos = 150
@@ -101,8 +95,8 @@ func _ready():
 		add_child(pantalla)
 		pantallas[panel_idx] = pantalla
 
-		var leyenda = HBoxContainer.new()
-		leyenda.add_theme_constant_override("separation", 16)
+		var leyenda = VBoxContainer.new()
+		leyenda.add_theme_constant_override("separation", 2)
 		add_child(leyenda)
 
 		for key in conf.vars:
@@ -116,7 +110,11 @@ func _ready():
 
 			var lbl = RichTextLabel.new()
 			lbl.bbcode_enabled = true
-			lbl.custom_minimum_size = Vector2(150, 22)
+			lbl.fit_content = true
+			lbl.scroll_active = false
+			lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			lbl.custom_minimum_size = Vector2(0, 22)
 			leyenda.add_child(lbl)
 			labels[key] = lbl
 
