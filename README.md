@@ -64,7 +64,7 @@ export_presets.cfg      # Presets de exportación (Web / Windows Desktop)
 
 ## Captura
 
-[SCREENSHOT/GIF AQUÍ]
+![Panel SCADA/HMI del simulador mostrando el vuelo, los sliders del PID y el osciloscopio de FrameTime/Error/Actuador en tiempo real](Screen.png)
 
 ---
 

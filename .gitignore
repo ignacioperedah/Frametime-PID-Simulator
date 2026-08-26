@@ -13,6 +13,8 @@
 /*.js
 /*.png
 /*.png.import
+# Excepción: captura usada en el README (no es output de build)
+!/Screen.png
 /build/
 /export/
 /Exportacion/
