@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="DynamicResolutionScalingSinUI"
+config/name="FrameTime PID Simulator"
 run/main_scene="uid://sha6e5cqty0g"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -23,7 +23,7 @@ window/size/mode=3
 
 [dotnet]
 
-project/assembly_name="DynamicResolutionScaling"
+project/assembly_name="FrameTimePIDSimulator"
 
 [physics]
 
