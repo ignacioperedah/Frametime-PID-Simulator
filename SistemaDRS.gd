@@ -243,8 +243,7 @@ func _process(delta: float):
 				
 				var log_txt = "[%.1f s] Kp:%.3f Ki:%.3f Kd:%.3f | %s -> Estabilizado en: %.2f segundos.\n" % [tiempo_absoluto, Kp, Ki, Kd, motivo, ts_registrado]
 				ts_archivo_historial.store_string(log_txt)
-				ts_archivo_historial.flush() 
-				print("✔️ ts guardado: ", ts_registrado, "s")
+				ts_archivo_historial.flush()
 		else:
 			ts_tiempo_en_banda = 0.0 
 
@@ -459,7 +458,5 @@ func _on_toggle_csv():
 		archivo_csv = FileAccess.open("user://telemetria_drs.csv", FileAccess.WRITE)
 		archivo_csv.store_string("Tiempo_s,SP_ms,PV_FrameTime_ms,Error_ms,MV_Escala,Perturbacion_pt,Kp,Ki,Kd\n")
 		timer_muestreo = 0.0
-		print("GRABANDO EN: ", OS.get_user_data_dir(), "/telemetria_drs.csv")
 	else:
 		archivo_csv.close()
-		print("Grabación detenida y guardada.")

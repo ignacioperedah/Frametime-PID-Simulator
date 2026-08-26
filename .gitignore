@@ -1,3 +1,29 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Export builds (Web / Windows Desktop / etc.)
+DynamicResolutionScalingSinUI.exe
+DynamicResolutionScalingSinUI.pck
+DynamicResolutionScalingSinUI.wasm
+DynamicResolutionScalingSinUI.js
+DynamicResolutionScalingSinUI.html
+DynamicResolutionScalingSinUI.audio.worklet.js
+DynamicResolutionScalingSinUI.audio.position.worklet.js
+DynamicResolutionScalingSinUI.png
+DynamicResolutionScalingSinUI.png.import
+DynamicResolutionScalingSinUI.icon.png
+DynamicResolutionScalingSinUI.icon.png.import
+DynamicResolutionScalingSinUI.apple-touch-icon.png
+DynamicResolutionScalingSinUI.apple-touch-icon.png.import
+/build/
+/export/
+/Exportacion/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS / temp
+*.tmp
+mono_crash.*
