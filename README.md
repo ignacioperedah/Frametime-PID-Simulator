@@ -25,6 +25,12 @@ perturbaciones simulables: alta carga geométrica, thermal throttling y stall de
 (SSD), con registro del tiempo de establecimiento (`ts`) de cada una y exportación de
 telemetría a CSV.
 
+Este proyecto nació como Trabajo Final Integrador de Tecnologías de Automatización
+(UTN-FRBA) — el informe con la fundamentación matemática completa del lazo de control,
+la parametrización del criterio de calidad de servicio (QoS) y el análisis crítico de
+distintas sintonías del PID está en [`docs/informe-tfi.pdf`](docs/informe-tfi.pdf), con
+el diagrama de bloques del sistema en [`docs/diagrama-bloques.pdf`](docs/diagrama-bloques.pdf).
+
 ## Tecnologías
 
 - **Godot Engine 4.7** (GDScript)
@@ -51,6 +57,13 @@ Los presets de exportación (Web y Windows Desktop) están definidos en
 `export_presets.cfg`. Los binarios de build **no se versionan** — generalos localmente
 desde el editor (`Project > Export`).
 
+### Prototipo web (versión previa)
+
+Antes de portar el proyecto a Godot 3D existió un prototipo 2D en HTML/JS, conservado en
+[`web-prototype/`](web-prototype/) como referencia histórica del desarrollo — ver su
+[README](web-prototype/README.md) para abrirlo directamente en el navegador (requiere
+internet para cargar la librería de gráficos).
+
 ## Estructura del proyecto
 
 ```
@@ -67,6 +80,11 @@ assets/
     icon.svg                        # Ícono del proyecto
 docs/
   Screen.png                        # Captura usada en este README
+  informe-tfi.pdf                   # Informe académico completo (TFI, UTN-FRBA)
+  diagrama-bloques.pdf              # Diagrama de bloques del lazo de control
+web-prototype/
+  simulador_drs.html                # Prototipo 2D previo (versión histórica)
+  README.md
 ```
 
 ## Captura

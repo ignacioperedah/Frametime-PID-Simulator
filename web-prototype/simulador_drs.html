@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador DRS - TFI UTN-FRBA</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --panel-bg: #ffffff;
+            --border-color: #d1d5db;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --utn-blue: #0055a4;
+            --fail-red: #ef4444;
+            --ok-green: #10b981;
+            --loading-blue: #3b82f6;
+        }    
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2, h3 { color: var(--utn-blue); margin-top: 0; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .control-group input[type="range"] { flex: 1; margin: 0 10px; }
+        .control-group span { width: 50px; text-align: right; font-family: monospace; }
+
+        button {
+            background-color: var(--utn-blue);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #004080; }
+
+        .btn-trigger { background-color: #4b5563; width: 100%; margin-top: 10px;}
+        .btn-trigger:hover { background-color: #374151; }
+        
+        .btn-trigger:disabled { cursor: not-allowed; opacity: 0.9; }
+
+        .preset-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .btn-preset {
+            background-color: #e5e7eb; color: var(--text-main); font-weight: 600;
+            font-size: 0.82rem; padding: 6px 12px; flex: 1; min-width: 90px;
+        }
+        .btn-preset:hover { background-color: #d1d5db; }
+
+        /* Banner de Estado */
+        #status-banner {
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            background-color: #4b5563;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .log-container {
+            max-height: 100px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: monospace;
+            padding: 10px;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .plot-container { height: 300px; width: 100%; }
+
+        .header-controls { display: flex; justify-content: space-between; align-items: center; }
+
+        .nota-tecnica {
+            font-size: 0.78rem; color: var(--text-muted); margin-top: 8px;
+            border-top: 1px dashed var(--border-color); padding-top: 6px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header-controls">
+        <h2>Simulación de Escalado Dinámico de Resolución (DRS)</h2>
+        <div>
+            <button id="btn-toggle-sim">Iniciar Simulación</button>
+            <button id="btn-reset" style="background-color: #ef4444;">Reiniciar</button>
+        </div>
+    </div>
+    
+    <div class="panel">
+        <h3>Lazo de Control (Ganancias PID)</h3>
+        <div class="grid-3">
+            <div class="control-group">
+                <label>Kp:</label>
+                <input type="range" id="sl-kp" min="0" max="0.15" step="0.001" value="0.03">
+                <span id="val-kp">0.03</span>
+            </div>
+            <div class="control-group">
+                <label>Ki:</label>
+                <input type="range" id="sl-ki" min="0" max="0.06" step="0.001" value="0.015">
+                <span id="val-ki">0.015</span>
+            </div>
+            <div class="control-group">
+                <label>Kd:</label>
+                <input type="range" id="sl-kd" min="0" max="0.0005" step="0.00001" value="0.0001">
+                <span id="val-kd">0.0001</span>
+            </div>
+        </div>
+        <div class="preset-row">
+            <button class="btn-preset" onclick="aplicarPreset(0.03,0,0,'Solo P')">Solo P</button>
+            <button class="btn-preset" onclick="aplicarPreset(0.03,0.015,0,'Solo PI')">Solo PI</button>
+            <button class="btn-preset" onclick="aplicarPreset(0.03,0,0.0001,'Solo PD')">Solo PD</button>
+            <button class="btn-preset" onclick="aplicarPreset(0.03,0.015,0.0001,'PID Nominal')">PID Nominal</button>
+            <button class="btn-preset" onclick="aplicarPreset(0.10,0.05,0.0003,'PID Agresivo')">PID Agresivo</button>
+        </div>
+        <div class="nota-tecnica">Presets según los 5 escenarios documentados en el informe (Fase 5). Kd=0 aísla P/PI; Ki=0 aísla P/PD.
+        <b>Nota:</b> "PID Agresivo" excede a propósito el margen de estabilidad del lazo (Kp·K_planta &gt; 1 con ~3 SCANs de retardo puro) — el ciclo límite resultante es el resultado esperado, no una falla del simulador.</div>
+    </div>
+
+    <div class="grid-3">
+        <div class="panel">
+            <h3>A. Complejidad Geométrica</h3>
+            <div class="control-group"><label>Amplitud (ms):</label><input type="range" id="sl-geo-amp" min="0" max="20" step="0.5" value="15"><span id="val-geo-amp">15</span></div>
+            <div class="control-group"><label>Duración (s):</label><input type="range" id="sl-geo-dur" min="0.5" max="5" step="0.1" value="3"><span id="val-geo-dur">3</span></div>
+            <div class="control-group"><label>Rampa Subida/Bajada (s):</label><input type="range" id="sl-geo-rampa" min="0" max="1" step="0.05" value="0.3"><span id="val-geo-rampa">0.3</span></div>
+            <button class="btn-trigger" id="btn-trigger-geo">Disparar Ahora</button>
+            <div class="nota-tecnica">Carga geométrica severa y sostenida: el objetivo de este escenario no es que un término aísle a los demás, sino verificar que el lazo PID completo (P+I+D) sostiene la estabilidad ante alta carga, aun sin ser esta la condición ideal para ninguno de sus términos por separado.</div>
+        </div>
+        <div class="panel">
+            <h3>B. Thermal Throttling</h3>
+            <div class="control-group"><label>Reducción (%):</label><input type="range" id="sl-thm-drop" min="0" max="25" step="1" value="15"><span id="val-thm-drop">15</span></div>
+            <div class="control-group"><label>Duración (s):</label><input type="range" id="sl-thm-dur" min="15" max="40" step="1" value="20"><span id="val-thm-dur">20</span></div>
+            <div class="control-group"><label>Rampa Recup. (s):</label><input type="range" id="sl-thm-cool" min="2" max="15" step="1" value="5"><span id="val-thm-cool">5</span></div>
+            <button class="btn-trigger" id="btn-trigger-thm">Disparar Ahora</button>
+        </div>
+        <div class="panel">
+            <h3>C. Stall de Streaming SSD</h3>
+            <div class="control-group"><label>Amplitud (ms):</label><input type="range" id="sl-ssd-amp" min="0" max="300" step="5" value="100"><span id="val-ssd-amp">100</span></div>
+            <div class="control-group"><label>Duración ráfaga (s):</label><input type="range" id="sl-ssd-dur" min="0.1" max="2" step="0.05" value="0.8"><span id="val-ssd-dur">0.8</span></div>
+            <div class="control-group"><label>Rampa Subida/Bajada (s):</label><input type="range" id="sl-ssd-rampa" min="0" max="1" step="0.05" value="0.3"><span id="val-ssd-rampa">0.3</span></div>
+            <button class="btn-trigger" id="btn-trigger-ssd">Disparar Ahora</button>
+            <div class="nota-tecnica">Con flancos graduales (no un escalón instantáneo), la acción Derivativa dispone de una pendiente finita para anticipar, en vez de un delta que el retardo de transporte vuelve irrelevante. Comparar "PID Nominal" contra "Solo P"/"Solo PI".</div>
+        </div>
+    </div>
+
+    <div class="panel" style="padding: 10px;">
+        <div id="status-banner">SISTEMA EN ESPERA</div>
+        <div class="log-container" id="log-box"></div>
+    </div>
+
+    <div class="panel"><div id="plot-1" class="plot-container"></div></div>
+    <div class="grid-3">
+        <div class="panel" style="grid-column: span 1;"><div id="plot-2" class="plot-container"></div></div>
+        <div class="panel" style="grid-column: span 2;"><div id="plot-3" class="plot-container"></div></div>
+    </div>
+    <div class="panel"><div id="plot-4" class="plot-container"></div></div>
+</div>
+
+<script>
+    /* ==========================================================================
+       CONSTANTES DEL SISTEMA Y ALCANCE FÍSICO (Prompt 1 y 2)
+       ========================================================================== */
+    const SP = 16.66;                   
+    const BANDA_TOL = 0.05 * SP;         
+    const ERROR_DEADBAND = 0.2;          
+    const CUANTIZACION_SENSOR = 0.1;     
+    const MV_MIN = 0.5;                  
+    const MV_MAX = 1.0;                  
+    const LIMITE_SCANS_FUERA = 2;        
+
+    const T_FIJO = 6.0;                  
+    const K_PLANTA = 22.0;               
+    const S0_NOMINAL = 0.696;            
+    const W_NATIVO = 1920;               
+    const H_NATIVO = 1080;
+
+    const A_TRANSITORIO = 12.0;          
+    const TAU_TRANSITORIO = 0.12;        
+    const VENTANA_TRANSITORIA = 0.55;    
+    const DT_NOMINAL_DERIVADA = SP / 1000.0; 
+
+    /* ==========================================================================
+       ESTADOS (Sistema y Perturbaciones)
+       ========================================================================== */
+    function estadoInicial() {
+        return {
+            corriendo: false, t: 0.0, s: MV_MAX, 
+            frameTimeAnterior: SP, errorAnterior: 0, integral: 0, derivadaFiltrada: 0,
+            bufferPV: [SP, SP], contador_fuera_banda: 0, fallo_activo: false,
+            traza_t: [], traza_sp: [], traza_theta: [], traza_mpx: [],
+            traza_err: [], traza_pgeo: [], traza_tau: [], traza_stall: [], traza_med: []
+        };
+    }
+
+    let estado = estadoInicial();
+    
+    // Rastreo de perturbaciones dinámicas
+    let perturbaciones = {
+        geo: { activa: false, inicio: 0, dur: 0, amp: 0, rampa: 0 },
+        thm: { activa: false, inicio: 0, dur: 0, cool: 0, drop: 0 },
+        ssd: { activa: false, inicio: 0, dur: 0, amp: 0, rampa: 0 }
+    };
+
+    let logMensajes = [];
+    let loopInterval = null;
+    let uiUpdateCounter = 0;
+
+    /* ==========================================================================
+       FUNCIONES MATEMÁTICAS Y EVENTOS
+       ========================================================================== */
+    function getVal(id) { return parseFloat(document.getElementById(id).value); }
+
+    function activarBotonUI(id, activado) {
+        let btn = document.getElementById(id);
+        if (activado) {
+            btn.disabled = true;
+            btn.textContent = "Perturbación Activa...";
+            btn.style.backgroundColor = "#ef4444";
+        } else {
+            btn.disabled = false;
+            btn.textContent = "Disparar Ahora";
+            btn.style.backgroundColor = ""; 
+        }
+    }
+
+    // Disparadores manuales
+    document.getElementById('btn-trigger-geo').onclick = () => {
+        if (!estado.corriendo) return;
+        perturbaciones.geo = { activa: true, inicio: estado.t, dur: getVal('sl-geo-dur'), amp: getVal('sl-geo-amp'), rampa: getVal('sl-geo-rampa') };
+        activarBotonUI('btn-trigger-geo', true);
+        logEvent("Disparo: Complejidad Geométrica (Alta Carga) iniciada.");
+    };
+
+    document.getElementById('btn-trigger-thm').onclick = () => {
+        if (!estado.corriendo) return;
+        perturbaciones.thm = { activa: true, inicio: estado.t, dur: getVal('sl-thm-dur'), cool: getVal('sl-thm-cool'), drop: getVal('sl-thm-drop') };
+        activarBotonUI('btn-trigger-thm', true);
+        logEvent("Disparo: Thermal Throttling iniciado.");
+    };
+
+    document.getElementById('btn-trigger-ssd').onclick = () => {
+        if (!estado.corriendo) return;
+        perturbaciones.ssd = { activa: true, inicio: estado.t, dur: getVal('sl-ssd-dur'), amp: getVal('sl-ssd-amp'), rampa: getVal('sl-ssd-rampa') };
+        activarBotonUI('btn-trigger-ssd', true);
+        logEvent("Disparo: Acceso a Disco (Stall SSD con rampa) iniciado.");
+    };
+
+    // Funciones puras de cálculo de perturbación en el instante 't'
+    function calcularTau(t) {
+        let p = perturbaciones.thm;
+        if (!p.activa) return 1.0; 
+        
+        let elapsed = t - p.inicio;
+        let drop = p.drop / 100.0;
+        let tau_min = 1.0 - drop;
+
+        if (elapsed < p.dur) return tau_min;
+        if (elapsed < (p.dur + p.cool)) {
+            let progreso = (elapsed - p.dur) / p.cool;
+            return tau_min + (drop * progreso);
+        }
+        return 1.0; 
+    }
+
+    // Perfil trapezoidal: rampa de subida y bajada simétrica (rampa=0 => escalón puro, retrocompatible)
+    function perfilTrapezoidal(t, p) {
+        if (!p.activa) return 0.0;
+        const elapsed = t - p.inicio;
+        if (elapsed > p.dur) return 0.0;
+        const r = p.rampa || 0;
+        if (r > 0 && elapsed < r) return p.amp * (elapsed / r);
+        if (r > 0 && elapsed > (p.dur - r)) return p.amp * Math.max(0, (p.dur - elapsed) / r);
+        return p.amp;
+    }
+
+    function calcularPulsoGeo(t) {
+        return perfilTrapezoidal(t, perturbaciones.geo);
+    }
+
+    function calcularStallSSD(t) {
+        return perfilTrapezoidal(t, perturbaciones.ssd);
+    }
+
+    function calcularTransitorio(t) {
+        return A_TRANSITORIO * Math.exp(-t / TAU_TRANSITORIO);
+    }
+
+    function cuantizar(valor_ms) {
+        return Math.round(valor_ms / CUANTIZACION_SENSOR) * CUANTIZACION_SENSOR;
+    }
+
+    function logEvent(msg) {
+        let ts = estado.t.toFixed(2);
+        logMensajes.unshift(`[${ts}s] ${msg}`);
+        if (logMensajes.length > 20) logMensajes.pop();
+        document.getElementById('log-box').innerHTML = logMensajes.join('<br>');
+    }
+
+    /* ==========================================================================
+       MOTOR FÍSICO
+       ========================================================================== */
+    function pasoSCAN() {
+        const dt_scan_ms = estado.frameTimeAnterior;
+        const dt_sec = dt_scan_ms / 1000.0;
+        const t_previo = estado.t;
+        estado.t += dt_sec;
+
+        // Gestión del fin de las perturbaciones para rehabilitar botones UI
+        if (perturbaciones.geo.activa && (estado.t - perturbaciones.geo.inicio > perturbaciones.geo.dur)) {
+            perturbaciones.geo.activa = false;
+            activarBotonUI('btn-trigger-geo', false);
+            logEvent("Fin de perturbación Geométrica.");
+        }
+        if (perturbaciones.thm.activa && (estado.t - perturbaciones.thm.inicio > (perturbaciones.thm.dur + perturbaciones.thm.cool))) {
+            perturbaciones.thm.activa = false;
+            activarBotonUI('btn-trigger-thm', false);
+            logEvent("Fin de Thermal Throttling (enfriamiento completado).");
+        }
+        if (perturbaciones.ssd.activa && (estado.t - perturbaciones.ssd.inicio > perturbaciones.ssd.dur)) {
+            perturbaciones.ssd.activa = false;
+            activarBotonUI('btn-trigger-ssd', false);
+            logEvent("Fin de Streaming Stall.");
+        }
+
+        const Kp = getVal('sl-kp'); const Ki = getVal('sl-ki'); const Kd = getVal('sl-kd');
+        const tau = calcularTau(estado.t);
+        const p_geo = calcularPulsoGeo(estado.t);
+        const stall = calcularStallSSD(estado.t);
+        const p_transitorio = calcularTransitorio(estado.t);
+
+        const frameTimeReal = T_FIJO + (K_PLANTA / tau) * Math.pow(estado.s, 2) + p_geo + stall + p_transitorio;
+
+        estado.bufferPV.push(frameTimeReal);
+        const ft_delayed = estado.bufferPV.shift();
+        const medicion = cuantizar(ft_delayed);
+
+        const error_crudo = SP - medicion;
+        const error = Math.abs(error_crudo) < ERROR_DEADBAND ? 0 : error_crudo;
+
+        const ALPHA = 0.15; 
+        const derivadaCruda = (error - estado.errorAnterior) / DT_NOMINAL_DERIVADA;
+        estado.derivadaFiltrada = (ALPHA * derivadaCruda) + ((1.0 - ALPHA) * estado.derivadaFiltrada);
+        const derivada = estado.derivadaFiltrada;
+
+        estado.integral += error * dt_sec;
+
+        let s_raw = S0_NOMINAL + (Kp * error) + (Ki * estado.integral) + (Kd * derivada);
+        let s_clamped = Math.max(MV_MIN, Math.min(MV_MAX, s_raw));
+
+        if (s_raw !== s_clamped) {
+            estado.integral -= error * dt_sec;
+        }
+
+        const en_transitorio = estado.t <= VENTANA_TRANSITORIA;
+        const fuera_de_banda = !en_transitorio && Math.abs(error) > BANDA_TOL;
+        
+        if (fuera_de_banda) estado.contador_fuera_banda += 1;
+        else estado.contador_fuera_banda = 0;
+
+        const tiempo_fuera_banda_acum = estado.contador_fuera_banda * dt_scan_ms;
+        const limite_tiempo_permitido = LIMITE_SCANS_FUERA * dt_scan_ms;
+
+        const cond_amplitud = !en_transitorio && Math.abs(error) > (3 * BANDA_TOL);
+        const cond_persistencia = !en_transitorio && tiempo_fuera_banda_acum > limite_tiempo_permitido;
+        const cond_saturacion = !en_transitorio && (estado.s === MV_MIN) && (estado.contador_fuera_banda > LIMITE_SCANS_FUERA);
+
+        let fallo_anterior = estado.fallo_activo;
+        estado.fallo_activo = cond_amplitud || cond_persistencia || cond_saturacion;
+
+        let causa = "";
+        if (cond_saturacion) causa = "Saturación del Actuador (Límite Inferior)";
+        else if (cond_amplitud) causa = "Error de Amplitud Crítica";
+        else if (cond_persistencia) causa = "Persistencia Fuera de Banda";
+
+        if (estado.fallo_activo && !fallo_anterior) logEvent(`Falla: ${causa}`);
+
+        const banner = document.getElementById('status-banner');
+        if (en_transitorio) {
+            banner.style.backgroundColor = 'var(--loading-blue)';
+            banner.innerHTML = `CARGANDO RECURSOS — ESTADO TRANSITORIO`;
+        } else if (estado.fallo_activo) {
+            banner.style.backgroundColor = 'var(--fail-red)';
+            banner.innerHTML = `FALLA DECLARADA POR LA APLICACIÓN<br><span style="font-size:0.9rem; font-weight:normal;">Causa: ${causa}</span>`;
+        } else {
+            banner.style.backgroundColor = 'var(--ok-green)';
+            banner.innerHTML = `EN BANDA (OK) — s(k) = ${estado.s.toFixed(3)}x | Δt = ${dt_scan_ms.toFixed(1)}ms`;
+        }
+
+        estado.s = s_clamped;
+        estado.errorAnterior = error;
+        estado.frameTimeAnterior = frameTimeReal;
+
+        const t_max = 20.0;
+        if (estado.traza_t.length > 0 && (estado.t - estado.traza_t[0] > t_max)) {
+            estado.traza_t.shift(); estado.traza_sp.shift(); estado.traza_theta.shift();
+            estado.traza_mpx.shift(); estado.traza_err.shift(); estado.traza_pgeo.shift();
+            estado.traza_tau.shift(); estado.traza_stall.shift(); estado.traza_med.shift();
+        }
+
+        estado.traza_t.push(estado.t);
+        estado.traza_sp.push(SP);
+        estado.traza_theta.push(frameTimeReal);
+        estado.traza_med.push(medicion);
+        estado.traza_err.push(error);
+        // Acá guardamos la Carga (MV)
+        estado.traza_mpx.push((W_NATIVO * H_NATIVO * Math.pow(estado.s, 2)) / 1000000.0);
+        estado.traza_pgeo.push(p_geo);
+        estado.traza_tau.push(tau);
+        estado.traza_stall.push(stall);
+
+        uiUpdateCounter++;
+        if (uiUpdateCounter % 5 === 0) actualizarGraficos();
+    }
+
+    /* ==========================================================================
+       GESTIÓN DE INTERFAZ Y PLOTLY
+       ========================================================================== */
+    function bindSlider(idSlider, idValor) {
+        document.getElementById(idSlider).addEventListener('input', function(e) {
+            document.getElementById(idValor).textContent = e.target.value;
+        });
+    }
+
+    ['kp','ki','kd'].forEach(v => bindSlider(`sl-${v}`, `val-${v}`));
+    ['geo-amp','geo-dur','geo-rampa'].forEach(v => bindSlider(`sl-${v}`, `val-${v}`));
+    ['thm-drop','thm-dur','thm-cool'].forEach(v => bindSlider(`sl-${v}`, `val-${v}`));
+    ['ssd-amp','ssd-dur','ssd-rampa'].forEach(v => bindSlider(`sl-${v}`, `val-${v}`));
+
+    function aplicarPreset(kp, ki, kd, nombre) {
+        document.getElementById('sl-kp').value = kp; document.getElementById('sl-ki').value = ki; document.getElementById('sl-kd').value = kd;
+        document.getElementById('val-kp').textContent = kp; document.getElementById('val-ki').textContent = ki; document.getElementById('val-kd').textContent = kd;
+        logEvent(`Escenario aplicado: ${nombre} (Kp=${kp}, Ki=${ki}, Kd=${kd})`);
+    }
+
+    function initGraficos() {
+        const layoutBase = { margin: { t: 30, b: 30, l: 50, r: 50 }, font: {family: 'Segoe UI'} };
+
+        Plotly.newPlot('plot-1', [
+            { x: [], y: [], name: 'Setpoint (SP)', line: {dash: 'dot', color: '#6b7280'} },
+            { x: [], y: [], name: 'FrameTime Real (θo)', line: {color: '#ef4444'} },
+            { x: [], y: [], name: 'Medición Transducida', line: {color: '#3b82f6', width: 1} }
+        ], { ...layoutBase, title: 'Gráfico 1 y 5: Respuesta Temporal y Sensor', yaxis: {title: 'Tiempo (ms)', range: [0, 45]} });
+
+        // Título y Leyenda ajustados conceptualmente
+        Plotly.newPlot('plot-2', [
+            { x: [], y: [], name: 'Acción MV (Mpx)', line: {color: '#8b5cf6'}, fill: 'tozeroy' }
+        ], { ...layoutBase, title: 'Gráfico 2: Variable Manipulada (MV)', yaxis: {title: 'Carga GPU (Mpx)', range: [0, 2.2]} });
+
+        Plotly.newPlot('plot-3', [
+            { x: [], y: [], name: 'Error e(k)', line: {color: '#f59e0b'} }
+        ], {
+            ...layoutBase, title: 'Gráfico 3: Error de Sistema', yaxis: {title: 'Error (ms)', range: [-20, 20]},
+            shapes: [
+                { type: 'line', y0: BANDA_TOL, y1: BANDA_TOL, x0: 0, x1: 1, xref: 'paper', line: {color: 'rgba(16,185,129,0.4)', width: 2, dash: 'dash'} },
+                { type: 'line', y0: -BANDA_TOL, y1: -BANDA_TOL, x0: 0, x1: 1, xref: 'paper', line: {color: 'rgba(16,185,129,0.4)', width: 2, dash: 'dash'} }
+            ]
+        });
+
+        Plotly.newPlot('plot-4', [
+            { x: [], y: [], name: 'P. Geo (ms)', yaxis: 'y1', line: {color: '#10b981'} },
+            { x: [], y: [], name: 'Throttling (τ)', yaxis: 'y2', line: {color: '#ec4899'} },
+            { x: [], y: [], name: 'Stall SSD (ms)', yaxis: 'y3', line: {color: '#6366f1'} }
+        ], {
+            margin: { t: 30, b: 30, l: 50, r: 80 },
+            title: 'Gráfico 4: Perturbaciones Concurrentes',
+            yaxis:  { title: 'Geo (ms)', titlefont: {color: '#10b981'}, tickfont: {color: '#10b981'}, range: [0, 15] },
+            yaxis2: { title: 'Throttling (τ)', titlefont: {color: '#ec4899'}, tickfont: {color: '#ec4899'}, range: [0.70, 1.05], overlaying: 'y', side: 'right' },
+            yaxis3: { title: 'Stall (ms log)', type: 'log', titlefont: {color: '#6366f1'}, tickfont: {color: '#6366f1'}, range: [0, Math.log10(350)], overlaying: 'y', side: 'right', position: 0.95, showgrid: false }
+        });
+    }
+
+    function actualizarGraficos() {
+        if (estado.traza_t.length === 0) return;
+
+        let t_range = [estado.traza_t[0], Math.max(estado.traza_t[estado.traza_t.length-1], 20.0)];
+
+        Plotly.update('plot-1', {x: [estado.traza_t, estado.traza_t, estado.traza_t], y: [estado.traza_sp, estado.traza_theta, estado.traza_med]}, {}, [0,1,2]);
+        Plotly.relayout('plot-1', {xaxis: {range: t_range}});
+
+        Plotly.update('plot-2', {x: [estado.traza_t], y: [estado.traza_mpx]}, {}, [0]);
+        Plotly.relayout('plot-2', {xaxis: {range: t_range}});
+
+        Plotly.update('plot-3', {x: [estado.traza_t], y: [estado.traza_err]}, {}, [0]);
+        Plotly.relayout('plot-3', {xaxis: {range: t_range}});
+
+        Plotly.update('plot-4', {x: [estado.traza_t, estado.traza_t, estado.traza_t], y: [estado.traza_pgeo, estado.traza_tau, estado.traza_stall]}, {}, [0,1,2]);
+        Plotly.relayout('plot-4', {xaxis: {range: t_range}});
+    }
+
+    document.getElementById('btn-toggle-sim').onclick = (e) => {
+        estado.corriendo = !estado.corriendo;
+        e.target.textContent = estado.corriendo ? "Pausar Simulación" : "Iniciar Simulación";
+        e.target.style.backgroundColor = estado.corriendo ? "#f59e0b" : "var(--utn-blue)";
+
+        if (estado.corriendo) {
+            logEvent("Simulación iniciada");
+            loopInterval = setInterval(() => { if (estado.corriendo) pasoSCAN(); }, 16);
+        } else {
+            logEvent("Simulación pausada");
+            clearInterval(loopInterval);
+        }
+    };
+
+    document.getElementById('btn-reset').onclick = () => {
+        estado = estadoInicial();
+        
+        // Reset botones de perturbación
+        perturbaciones = { 
+            geo: {activa: false, inicio:0, dur:0, amp:0}, 
+            thm: {activa: false, inicio:0, dur:0, cool:0, drop:0}, 
+            ssd: {activa: false, inicio:0, dur:0, amp:0} 
+        };
+        activarBotonUI('btn-trigger-geo', false);
+        activarBotonUI('btn-trigger-thm', false);
+        activarBotonUI('btn-trigger-ssd', false);
+
+        // Reset estado botón Iniciar
+        const btnSim = document.getElementById('btn-toggle-sim');
+        btnSim.textContent = "Iniciar Simulación";
+        btnSim.style.backgroundColor = "var(--utn-blue)";
+        clearInterval(loopInterval);
+
+        logMensajes = [];
+        logEvent("Sistema reseteado a condiciones iniciales.");
+        document.getElementById('status-banner').style.backgroundColor = '#4b5563';
+        document.getElementById('status-banner').innerHTML = 'SISTEMA EN ESPERA';
+        initGraficos();
+    };
+
+    initGraficos();
+    logEvent("Motor de simulación instanciado correctamente.");
+</script>
+</body>
+</html>
