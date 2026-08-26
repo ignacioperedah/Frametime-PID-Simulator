@@ -426,7 +426,7 @@ func _construir_interfaz_dinamica():
 	
 	osc_rect = VBoxContainer.new()
 	osc_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	osc_rect.set_script(load("res://MultiOsciloscopio.gd"))
+	osc_rect.set_script(load("res://scripts/MultiOsciloscopio.gd"))
 	vbox.add_child(osc_rect)
 
 func _actualizar_hmi_texto():

@@ -36,7 +36,7 @@ telemetría a CSV.
 1. Instalar [Godot 4.7](https://godotengine.org/download) (o superior compatible).
 2. Clonar este repositorio.
 3. Abrir `project.godot` con el editor de Godot.
-4. Ejecutar la escena principal (`sistema_drs.tscn`) con F5 / botón de Play.
+4. Ejecutar la escena principal (`scenes/sistema_drs.tscn`) con F5 / botón de Play.
 
 ### Controles
 
@@ -54,17 +54,24 @@ desde el editor (`Project > Export`).
 ## Estructura del proyecto
 
 ```
-project.godot          # Configuración del proyecto Godot
-sistema_drs.tscn        # Escena principal
-SistemaDRS.gd           # Lazo PID, planta simulada, generación de ciudad y perturbaciones
-MultiOsciloscopio.gd    # Panel HMI: graficado en tiempo real de SP/PV/error/actuador
-CamaraVuelo.gd          # Control de cámara en primera persona (vuelo)
-export_presets.cfg      # Presets de exportación (Web / Windows Desktop)
+project.godot                       # Configuración del proyecto Godot
+export_presets.cfg                  # Presets de exportación (Web / Windows Desktop)
+scenes/
+  sistema_drs.tscn                  # Escena principal
+scripts/
+  SistemaDRS.gd                     # Lazo PID, planta simulada, generación de ciudad y perturbaciones
+  MultiOsciloscopio.gd              # Panel HMI: graficado en tiempo real de SP/PV/error/actuador
+  CamaraVuelo.gd                    # Control de cámara en primera persona (vuelo)
+assets/
+  icons/
+    icon.svg                        # Ícono del proyecto
+docs/
+  Screen.png                        # Captura usada en este README
 ```
 
 ## Captura
 
-![Panel SCADA/HMI del simulador mostrando el vuelo, los sliders del PID y el osciloscopio de FrameTime/Error/Actuador en tiempo real](Screen.png)
+![Panel SCADA/HMI del simulador mostrando el vuelo, los sliders del PID y el osciloscopio de FrameTime/Error/Actuador en tiempo real](docs/Screen.png)
 
 ---
 

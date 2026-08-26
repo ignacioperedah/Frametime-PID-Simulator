@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://sha6e5cqty0g"]
 
-[ext_resource type="Script" uid="uid://dfbh7hgelow35" path="res://SistemaDRS.gd" id="1_0vxwu"]
-[ext_resource type="Script" uid="uid://oe52bi6sumr" path="res://CamaraVuelo.gd" id="2_b4n7r"]
+[ext_resource type="Script" uid="uid://dfbh7hgelow35" path="res://scripts/SistemaDRS.gd" id="1_0vxwu"]
+[ext_resource type="Script" uid="uid://oe52bi6sumr" path="res://scripts/CamaraVuelo.gd" id="2_b4n7r"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_b4n7r"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
